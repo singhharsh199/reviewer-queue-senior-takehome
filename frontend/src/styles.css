@@ -222,3 +222,63 @@ dd {
     margin-bottom: 16px;
   }
 }
+
+.queue-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 4px;
+}
+
+.risk-pill {
+  padding: 2px 6px;
+  border-radius: 4px;
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+}
+
+.risk-high { background: #fee2e2; color: #991b1b; }
+.risk-medium { background: #fef3c7; color: #92400e; }
+.risk-low { background: #e0f2fe; color: #075985; }
+
+.priority-tag {
+  color: #d97706;
+  font-size: 11px;
+  font-weight: 600;
+}
+
+.mine-tag {
+  background: #dbeafe;
+  color: #1e40af;
+  padding: 2px 6px;
+  border-radius: 4px;
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+}
+
+.status-approved { background: #dcfce7 !important; color: #166534 !important; }
+.status-rejected { background: #fee2e2 !important; color: #991b1b !important; }
+.status-escalated { background: #ffedd5 !important; color: #9a3412 !important; }
+
+.terminal-note {
+  margin-top: 16px;
+  font-size: 13px;
+  color: #64748b;
+  font-style: italic;
+}
+
+button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.mine {
+  border-left: 3px solid #3b82f6;
+}
+
+.inline {
+  display: inline-block;
+  margin-left: 8px;
+}
