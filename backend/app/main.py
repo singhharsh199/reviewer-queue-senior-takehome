@@ -51,14 +51,42 @@ async def reset_items() -> dict:
     return {"items": deepcopy(ITEMS)}
 
 
+def get_urgency_key(item: dict) -> tuple:
+    # TAKEHOME: Order active items by urgency:
+    # 1. higher risk_level outranks lower (high > medium > low)
+    # 2. within same risk level, priority customers outrank standard
+    # 3. older items outrank newer items (ascending submitted_at)
+    risk_map = {"high": 0, "medium": 1, "low": 2}
+    risk_val = risk_map.get(item.get("risk_level", "low"), 2)
+
+    tier_map = {"priority": 0, "standard": 1}
+    tier_val = tier_map.get(item.get("customer_tier", "standard"), 1)
+
+    submitted_at = item.get("submitted_at", "")
+    return (risk_val, tier_val, submitted_at)
+
+
 @app.get("/review-items")
 async def list_review_items(active_only: bool = True) -> dict:
     items = deepcopy(ITEMS)
 
     if active_only:
-        items = [item for item in items if item["status"] != "approved"]
+        # TAKEHOME: Exclude all terminal states (approved, rejected, escalated)
+        items = [
+            item for item in items 
+            if item["status"] not in {"approved", "rejected", "escalated"}
+        ]
+        items.sort(key=get_urgency_key)
+    else:
+        # For the all-items list, keep active items sorted by urgency first,
+        # and terminal items sorted by submitted_at descending at the end.
+        active = [item for item in items if item["status"] not in {"approved", "rejected", "escalated"}]
+        terminal = [item for item in items if item["status"] in {"approved", "rejected", "escalated"}]
+        
+        active.sort(key=get_urgency_key)
+        terminal.sort(key=lambda x: x.get("submitted_at", ""), reverse=True)
+        items = active + terminal
 
-    items.sort(key=lambda item: item["submitted_at"], reverse=True)
     return {"items": items}
 
 
@@ -72,14 +100,35 @@ async def get_review_item(item_id: str) -> dict:
 async def apply_action(item_id: str, request: ActionRequest) -> dict:
     item = find_item(item_id)
 
+    # TAKEHOME: Terminal items must not allow further actions
+    if item["status"] in {"approved", "rejected", "escalated"}:
+        raise HTTPException(
+            status_code=400, 
+            detail="Cannot perform actions on a terminal item"
+        )
+
     if request.action == "claim":
-        if item["status"] in {"approved", "rejected", "escalated"}:
-            raise HTTPException(status_code=409, detail="This item cannot be claimed")
+        # TAKEHOME: Only items with status unassigned can be claimed
+        if item["status"] != "unassigned":
+            raise HTTPException(
+                status_code=400, 
+                detail="Only unassigned items can be claimed"
+            )
         item["status"] = "in_review"
         item["assigned_reviewer"] = request.reviewer
     elif request.action in {"approve", "reject", "escalate"}:
-        if item["status"] == "approved":
-            raise HTTPException(status_code=409, detail="This item has already been approved")
+        # TAKEHOME: Only items with status in_review can be approved, rejected, or escalated
+        if item["status"] != "in_review":
+            raise HTTPException(
+                status_code=400, 
+                detail="Only items in review can be approved, rejected, or escalated"
+            )
+        # TAKEHOME: Ensure only the assigned reviewer can perform the action
+        if item.get("assigned_reviewer") != request.reviewer:
+            raise HTTPException(
+                status_code=403, 
+                detail=f"Only the assigned reviewer ({item.get('assigned_reviewer')}) can perform this action"
+            )
         item["status"] = status_for_action(request.action)
     else:
         raise HTTPException(status_code=400, detail="Unsupported action")
